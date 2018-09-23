@@ -2,9 +2,14 @@
 
 #include <string>
 #include <unordered_map>
-#include <atomic>
-#include <condition_variable>
 #include <chrono>
+#include <mutex>
+#include <set>
+
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/bind.hpp>
+#include <boost/asio.hpp>
 
 #include "db_adapter/db_adapter.h"
 
@@ -12,19 +17,34 @@
 
 class DBCache
 {
-public:
-	DBCache(const std::string& dbname, const std::string& tblname, const std::string& datacolname)
-	: dba_(dbname, tblname, datacolname)
-	{}
+//	struct Record
+//	{
+//		std::string key;
+//		std::string data;
+//		std::timed_mutex timed_mx;
+//	};
 
-	void Read(const std::string& key, std::string& data);
-	void Write(const std::string& key, const std::string& data);
+public:
+	DBCache(const std::string& dbname, const std::string& tblname, const std::string& datacolname);
+
+	bool Read(const std::string& key, std::string& req_data);
+	bool Write(const std::string& key, const std::string& data);
 
 private:
-	std::unordered_map<std::string, std::mutex> locks_;
+	void sync();
+
+private:
+	mutable std::unordered_map<std::string, std::unique_ptr<std::timed_mutex>> locks_;
 	std::unordered_map<std::string, std::string> table_;
 
 	DBAdapter dba_;
+
+	boost::shared_mutex smx_;
+	std::set<std::string> changes_modified_;
+	std::set<std::string> changes_created_;
+
+	boost::asio::io_service io;
+	boost::asio::steady_timer timer_;
 
 	const std::chrono::duration<int> timeout_ = std::chrono::seconds(1);
 };

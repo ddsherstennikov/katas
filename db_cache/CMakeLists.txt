@@ -8,10 +8,24 @@ add_executable(db_cache main.cpp db_adapter/db_adapter.cpp db_adapter/db_adapter
 
 include_directories(${CMAKE_SOURCE_DIR})
 
+
+set(BOOST_LIBRARYDIR "/usr/lib/x86_64-linux-gnu/")
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME OFF)
+
+find_package(Boost 1.65.0 COMPONENTS thread)
+
+if(Boost_FOUND)
+    include_directories(${Boost_INCLUDE_DIRS})
+    target_link_libraries(db_cache ${Boost_LIBRARIES})
+endif()
+
+
+
 find_package(sqlite3)
-find_package(Boost 1.65.0 COMPONENTS filesystem)
 
 if (SQLITE3_FOUND)
 	include_directories(${SQLITE3_INCLUDE_DIRS})
-	target_link_libraries (db_cache ${SQLITE3_LIBRARIES} ${Boost_LIBRARIES})
+	target_link_libraries (db_cache ${SQLITE3_LIBRARIES})
 endif (SQLITE3_FOUND)

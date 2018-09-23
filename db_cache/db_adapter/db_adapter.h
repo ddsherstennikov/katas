@@ -14,10 +14,10 @@ public:
 
 	~DBAdapter();
 
-	std::string Read(const std::string& key);
-	void Write(const std::string& key, const std::string& data);
+	bool Read(const std::string& key, std::string& data);
+	bool Write(const std::string& key, const std::string& data);
 
-	void Read(const std::string& key, std::vector<std::string>& result, size_t count);
+	bool Read(const std::string& key, std::vector<std::string>& result, size_t count);
 
 private:
 	char* zErrMsg = 0;

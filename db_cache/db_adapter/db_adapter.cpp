@@ -21,10 +21,8 @@ DBAdapter::~DBAdapter()
 
 
 
-std::string DBAdapter::Read(const std::string& key)
+bool DBAdapter::Read(const std::string& key, std::string& data)
 {
-	std::string result;
-
 	std::string s_cmd = "select " + datacolname_ +
 	                    " from " + tblname_ +
 	                    " where key = \"" + key + "\";";
@@ -35,21 +33,22 @@ std::string DBAdapter::Read(const std::string& key)
 		return 0;
 	};
 
-	int rc = sqlite3_exec(db_, s_cmd.c_str(), inserter_lambda, &result, &zErrMsg);
+	int rc = sqlite3_exec(db_, s_cmd.c_str(), inserter_lambda, &data, &zErrMsg);
 
 	if(rc != SQLITE_OK)
 	{
 		fprintf(stderr, "SQL error: %s\n", zErrMsg);
 		sqlite3_free(zErrMsg);
-		throw(std::runtime_error("SQL error."));
+
+		return false;
 	}
 
-	return result;
+	return true;
 }
 
 
 
-void DBAdapter::Read(const std::string& key, std::vector<std::string>& result, size_t count)
+bool DBAdapter::Read(const std::string& key, std::vector<std::string>& result, size_t count)
 {
 	std::string s_cmd = "select " + datacolname_ +
 						" from " + tblname_ +
@@ -68,22 +67,19 @@ void DBAdapter::Read(const std::string& key, std::vector<std::string>& result, s
 	{
 		fprintf(stderr, "SQL error: %s\n", zErrMsg);
 		sqlite3_free(zErrMsg);
-		throw(std::runtime_error("SQL error."));
+
+		return false;
 	}
+
+	return true;
 }
 
 
 
-void DBAdapter::Write(const std::string& key, const std::string& data)
+bool DBAdapter::Write(const std::string& key, const std::string& data)
 {
 	std::string s_cmd = "insert into " + tblname_ +
 	                    " values ('" + key + "', '" + data + "')";
-
-	auto inserter_lambda = [](void* vs, int n_cols, char** str_array, char** azColName)->int {
-		auto vs_ptr = reinterpret_cast<std::vector<std::string>*>(vs);
-		vs_ptr->emplace_back(str_array[0]);
-		return 0;
-	};
 
 	int rc = sqlite3_exec(db_, s_cmd.c_str(), 0, 0, &zErrMsg);
 
@@ -91,6 +87,9 @@ void DBAdapter::Write(const std::string& key, const std::string& data)
 	{
 		fprintf(stderr, "SQL error: %s\n", zErrMsg);
 		sqlite3_free(zErrMsg);
-		throw(std::runtime_error("SQL error."));
+
+		return false;
 	}
+
+	return true;
 }
