@@ -1,8 +1,8 @@
-//
-// Created by sdd on 23.09.18.
-//
+#pragma once
 
-#ifndef DB_CACHE_QUOTE_GENR_H
-#define DB_CACHE_QUOTE_GENR_H
+#include <cstdlib>
+#include <fstream>
 
-#endif //DB_CACHE_QUOTE_GENR_H
+
+
+void genr_io(std::ofstream& infile, std::ofstream& outfile, size_t lines);

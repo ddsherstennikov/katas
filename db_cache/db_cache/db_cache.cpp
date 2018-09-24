@@ -17,7 +17,7 @@ DBCache::DBCache(const std::string& dbname, const std::string& tblname, const st
 
 bool DBCache::Read(const std::string& key, std::string& req_data)
 {
-	boost::shared_lock<boost::shared_mutex> shared_lock(smx_);
+	boost::shared_lock<boost::shared_mutex> sl(smx_);
 
 	auto it = locks_.find(key);
 
@@ -59,7 +59,7 @@ bool DBCache::Read(const std::string& key, std::string& req_data)
 
 bool DBCache::Write(const std::string& key, const std::string& data)
 {
-	boost::upgrade_lock<boost::shared_mutex> shared_lock(smx_);
+	boost::upgrade_lock<boost::shared_mutex> usl(smx_);
 
 	auto it = locks_.find(key);
 
@@ -81,7 +81,7 @@ bool DBCache::Write(const std::string& key, const std::string& data)
 	}
 	else                                // add new record
 	{
-		boost::upgrade_to_unique_lock<boost::shared_mutex> uniqueLock(shared_lock);
+		boost::upgrade_to_unique_lock<boost::shared_mutex> ul(usl);
 
 		locks_.emplace(key, std::make_unique<std::timed_mutex>());
 		table_.emplace(key, data);
@@ -95,7 +95,7 @@ bool DBCache::Write(const std::string& key, const std::string& data)
 
 void DBCache::sync()
 {
-	boost::unique_lock<boost::shared_mutex> smx;
+	boost::unique_lock<boost::shared_mutex> ul(smx_);
 
 	for (const std::string& modified_key : changes_modified_)
 	{

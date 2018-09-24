@@ -17,13 +17,6 @@
 
 class DBCache
 {
-//	struct Record
-//	{
-//		std::string key;
-//		std::string data;
-//		std::timed_mutex timed_mx;
-//	};
-
 public:
 	DBCache(const std::string& dbname, const std::string& tblname, const std::string& datacolname);
 
