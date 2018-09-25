@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <vector>
+#include <mutex>
 
 #include <sqlite3.h>
 
@@ -15,17 +16,20 @@ public:
 	~DBAdapter();
 
 	bool Read(const std::string& key, std::string& data);
-	bool Write(const std::string& key, const std::string& data);
+	bool Insert(const std::string& key, const std::string& data);
+	bool Update(const std::string& key, const std::string& data);
+	bool Delete();
 
-	bool Read(const std::string& key, std::vector<std::string>& result, size_t count);
+	bool Read(std::vector<std::string>& result, size_t count);
 
 private:
 	char* zErrMsg = 0;
 
-	std::string dbname_;
-	std::string tblname_;
-	std::string datacolname_;
+	const std::string dbname_;
+	const std::string tblname_;
+	const std::string datacolname_;
 
 	sqlite3* db_;
+	std::mutex dbmx_;
 };
 

@@ -24,12 +24,12 @@ std::string random_str(const size_t len)
 	return s;
 }
 
-inline size_t random_num(const size_t range)
+size_t random_num(const size_t range)
 {
 	return range * (rand() / (RAND_MAX + 1.0));
 }
 
-inline size_t random_num(const size_t lo, const size_t hi)
+size_t random_num(const size_t lo, const size_t hi)
 {
 	std::random_device rd; // obtain a random number from hardware
 	std::mt19937 eng(rd()); // seed the generator
@@ -42,29 +42,6 @@ inline size_t random_num(const size_t lo, const size_t hi)
 
 void genr_io(std::ofstream& infile, std::ofstream& outfile, size_t lines)
 {
-	std::vector<std::string> quote_sources = {
-		"Yoda",
-		"Obiwan",
-		"Ashoka",
-		"Vader",
-		"Palpatine",
-		"Qui Gon Jinn",
-		"Padme Amidala",
-		"C3P0",
-		"Han Solo",
-		"Leia Organa",
-		"Chewbacca",
-		"Lando Calrissian",
-		"Ezra Bridger",
-		"Hera Syndulla",
-		"Kanan Jarrus",
-		"Sabine Wren",
-		"Rex",
-		"Zeb Orrelios",
-		"Luke Skywalker",
-		"Count Dooku"
-	};
-
 	size_t shortest_quote = 10;
 	size_t longest_quote = 30;
 	size_t sz = quote_sources.size();

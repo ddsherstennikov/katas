@@ -1,16 +1,32 @@
 #include <mutex>
 #include <chrono>
+#include <thread>
+
+#include <boost/system/error_code.hpp>
+#include <boost/system/system_error.hpp>
+#include <boost/asio.hpp>
+#include <boost/bind.hpp>
 
 #include "db_cache/db_cache.h"
 
 
 
 DBCache::DBCache(const std::string& dbname, const std::string& tblname, const std::string& datacolname)
-		: dba_(dbname, tblname, datacolname), timer_(io, std::chrono::seconds(30))
+: dba_(dbname, tblname, datacolname), timer_(io_)
 {
-	timer_.async_wait(boost::bind(&DBCache::sync, this));
+	timer_.expires_from_now(boost::posix_time::seconds(1));
+	timer_.async_wait(boost::bind(&DBCache::sync, this, boost::asio::placeholders::error));
 
-	io.run();
+	io_thread_ = std::thread( [this](){ io_.run(); } );
+}
+
+DBCache::~DBCache()
+{
+	io_.stop();
+
+	io_thread_.join();
+
+	sync(boost::system::error_code());
 }
 
 
@@ -46,7 +62,7 @@ bool DBCache::Read(const std::string& key, std::string& req_data)
 	else                                // put new into db
 	{
 		req_data = "";
-		dba_.Write(key, req_data);
+		dba_.Insert(key, req_data);
 
 		locks_.emplace(key, std::make_unique<std::timed_mutex>());
 		table_.emplace(key, req_data);
@@ -93,20 +109,28 @@ bool DBCache::Write(const std::string& key, const std::string& data)
 
 
 
-void DBCache::sync()
+void DBCache::sync(const boost::system::error_code& ec)
 {
+	if (ec == boost::asio::error::operation_aborted)
+		return;
+	else if (ec)
+		boost::asio::detail::throw_error(ec);
+
 	boost::unique_lock<boost::shared_mutex> ul(smx_);
 
 	for (const std::string& modified_key : changes_modified_)
 	{
-		dba_.Write(modified_key, table_[modified_key]);
+		dba_.Update(modified_key, table_[modified_key]);
 	}
 
 	for (const std::string& created_key : changes_created_)
 	{
-		dba_.Write(created_key, table_[created_key]);
+		dba_.Insert(created_key, table_[created_key]);
 	}
 
-	timer_.expires_at(timer_.expires_at() + std::chrono::seconds(1));
-	timer_.async_wait(boost::bind(&DBCache::sync, this));                   // restart timer
+	if (!io_.stopped())     // restart timer
+	{
+		timer_.expires_from_now(boost::posix_time::seconds(1));
+		timer_.async_wait(boost::bind(&DBCache::sync, this, boost::asio::placeholders::error));
+	}
 }

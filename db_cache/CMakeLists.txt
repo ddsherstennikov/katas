@@ -14,11 +14,11 @@ set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 
-find_package(Boost 1.65.0 COMPONENTS thread)
+find_package(Boost 1.65.0 REQUIRED COMPONENTS system thread filesystem)
 
 if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
-    target_link_libraries(db_cache ${Boost_LIBRARIES})
+    target_link_libraries(db_cache Boost::system Boost::thread)
 endif()
 
 
