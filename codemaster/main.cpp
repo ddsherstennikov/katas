@@ -28,7 +28,7 @@ struct TrafficDataPackage
 	std::array<int, 6> MAC_to {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 	bool is_UDP {false};
 	size_t bytes {0};
-	double seconds {0};
+	double seconds {0.0};
 };
 
 
@@ -72,7 +72,7 @@ std::array<int, 5> get_ip(const std::string& s)
 		ip[i] = std::stoi(digits_s[i]);
 	
 	for (int i=0; i<4; i++)
-		if (i<0 || i>255)
+		if (ip[i]<0 || ip[i]>255)
 			throw std::runtime_error("bad record");
 	if (ip[4] < 0 || ip[4] > 65535)
 		throw std::runtime_error("bad record");
@@ -91,8 +91,8 @@ std::array<int, 6> get_mac(const std::string& s)
 	for(int i=0; i<6; i++)
 		mac[i] = std::stoi(digits_s[i], nullptr, 16);
 	
-	for (auto i : mac)
-		if (i<0 || i>255)
+	for (auto j : mac)
+		if (j<0 || j>255)
 			throw std::runtime_error("bad record");
 
 	return mac; // move
@@ -159,7 +159,7 @@ static std::unordered_map<std::string, std::unordered_map<std::string, std::bits
 
 
 // update formula: old_avg_speed * N == new_avg_speed * (N+1) - speed[N+1]
-void upd_node_speed(const std::string& node, const TrafficDataPackage& tdp)
+inline void upd_node_speed(const std::string& node, const TrafficDataPackage& tdp)
 {
 	double old_avg_speed = node_speed[node];
 	node_speed[node] = (old_avg_speed*(packages-1) + (tdp.bytes/tdp.seconds)) / packages;
@@ -287,8 +287,6 @@ int main(int argc, char* argv[])
 		}
 
 		aggregate(tdp);
-
-		s.clear();
 	}
 
 	TrafficAnalysisResult res = prepare_results();
