@@ -67,14 +67,15 @@ std::array<int, 5> get_ip(const std::string& s)
 	auto digits_s = split(s, ".:");
 	if (digits_s.size() != 5)
 		throw std::runtime_error("bad record");
+	
+	for(int i=0; i<5; i++)
+		ip[i] = std::stoi(digits_s[i]);
+	
 	for (int i=0; i<4; i++)
 		if (i<0 || i>255)
 			throw std::runtime_error("bad record");
 	if (ip[4] < 0 || ip[4] > 65535)
 		throw std::runtime_error("bad record");
-
-	for(int i=0; i<5; i++)
-		ip[i] = std::stoi(digits_s[i]);
 
 	return ip; // move
 }
@@ -86,12 +87,13 @@ std::array<int, 6> get_mac(const std::string& s)
 	auto digits_s = split(s, ":");
 	if (digits_s.size() != 6)
 		throw std::runtime_error("bad record");
+	
+	for(int i=0; i<6; i++)
+		mac[i] = std::stoi(digits_s[i], nullptr, 16);
+	
 	for (auto i : mac)
 		if (i<0 || i>255)
 			throw std::runtime_error("bad record");
-
-	for(int i=0; i<6; i++)
-		mac[i] = std::stoi(digits_s[i], nullptr, 16);
 
 	return mac; // move
 }
