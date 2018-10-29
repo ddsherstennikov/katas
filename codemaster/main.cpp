@@ -99,7 +99,7 @@ std::array<int, 6> get_mac(const std::string& s)
 }
 
 
-//                 5 ints             6 ints             4 ints         6 ints               bool size_t double
+//                 5 ints             6 ints             5 ints         6 ints               bool size_t double
 //              [         1       ];[        2     ];[      3      ];[       4            ];[ 5 ];[ 6 ];[  7 ]
 // example:     94.239.149.85:46889;eF:Eb:4e:8:A3:08;161.223.117.183:7306;Ce:62:c5:00:BE:cd;false;10707;0.0941
 TrafficDataPackage get_tdp(const std::string& s)
