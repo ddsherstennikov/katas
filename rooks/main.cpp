@@ -19,123 +19,97 @@
 
 
 using Board = std::array<std::array<std::shared_timed_mutex, 8>, 8>;   // not RAII
-using Pos = std::pair<size_t, size_t>;
+using Pos = std::pair<int, int>;
 
 thread_local uint rook_moves = 0;
 std::mutex cout_mx;
+Board board;
 
 constexpr const std::array<char,8> ax1 = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' };
 constexpr const std::array<uint,8> ax2 = { 1, 2, 3, 4, 5, 6, 7, 8 };
 
-size_t random_num(const size_t lo, const size_t hi)
+int random_num(const int lo, const int hi)
 {
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 eng(rd()); // seed the generator
-    std::uniform_int_distribution<size_t> distr(lo, hi); // define the range
+    std::uniform_int_distribution<int> distr(lo, hi); // define the range
 
     return distr(eng); // generate numbers
 }
 
-Pos random_rook_move(Pos pos)
+Pos gen_random_rook_pos(Pos pos)
 {
-    if (random_num(0, 1)) // random choice of axis
+    Pos new_pos;
+
+    do            // random choice of axis
     {
-        auto new_pos = std::make_pair(pos.first, random_num(0, 7));
-
-        while (new_pos == pos)
-            new_pos = { pos.first, random_num(0, 7) };
-
-        return new_pos;
+        new_pos = (random_num(0, 1) ? Pos{pos.first, random_num(0, 7)} : Pos{random_num(0, 7), pos.second});
     }
-    else
-    {
-        auto new_pos = std::make_pair(random_num(0,7), pos.second);
+    while (new_pos == pos);
 
-        while (new_pos == pos)
-            new_pos = { random_num(0,7), pos.second };
-
-        return new_pos;
-    }
+    return new_pos;
 }
 
 
-std::vector<Pos> get_rook_path(Pos rook_pos, Pos new_rook_pos)
+std::vector<Pos> get_rook_path(Pos pos, Pos new_pos)
 {
     std::vector<Pos> path;
 
-    if (rook_pos.first == new_rook_pos.first)
+    if (pos == new_pos)
+        throw std::runtime_error("Position generation error: pos == new pos.");
+
+    if (pos.first == new_pos.first)
     {
-        if (rook_pos.second > new_rook_pos.second)
-            for (int ax2=rook_pos.second-1; ax2>new_rook_pos.second; ax2--)
-                path.push_back({rook_pos.first, ax2});
-        else
-            for (int ax2=new_rook_pos.second-1; rook_pos.second<ax2; ax2--)
-                path.push_back({rook_pos.first, ax2});
+        for (int ax2=std::min(pos.second, new_pos.second)+1; ax2<std::max(pos.second, new_pos.second); ax2++)
+            path.emplace_back(pos.first, ax2);
+    }
+    else if (pos.second == new_pos.second)
+    {
+        for (int ax1=std::min(pos.first, new_pos.first)+1; ax1<std::max(pos.first, new_pos.first); ax1++)
+            path.emplace_back(ax1, pos.second);
     }
     else
-    {
-        if (rook_pos.first > new_rook_pos.first)
-            for (int ax1=rook_pos.first-1; ax1>new_rook_pos.first; ax1--)
-                path.push_back({ax1, rook_pos.second});
-        else
-            for (int ax1=new_rook_pos.first-1; rook_pos.first<ax1; ax1--)
-                path.push_back({ax1, rook_pos.second});
-    }
+        throw std::runtime_error("Position generation error: both axes differ.");
 
     return path;
 }
 
 
 // 5sec time-lock exclusive ownership on new_rook_pos and shared ownership on path [rook_pos; new_rook_pos]
-bool do_move_rook(Pos rook_pos, Pos new_rook_pos, Board& board)
+bool do_move_rook(Pos rook_pos, Pos new_rook_pos)
 {
     using sec = std::chrono::seconds;
 
     auto deadline = std::chrono::steady_clock::now() + sec(5);
     auto rook_path = get_rook_path(rook_pos, new_rook_pos);
+    int step = 0;
+    bool result = false;
 
-    if (board[new_rook_pos.first][new_rook_pos.second].try_lock_until(deadline))            // lock new pos
+    for (; step<rook_path.size(); step++)                                                   // try shared-lock path in coordinate ascension order
     {
-        int step = 0;
-
-        for (; step<rook_path.size(); step++)                                               // lock path
-        {
-            auto pos = rook_path[step];
-            if (!board[pos.first][pos.second].try_lock_shared_until(deadline))
-                break;
-        }
-
-        if (step == rook_path.size())
-        {
-            board[rook_pos.first][rook_pos.second].unlock();                                // unlock old pos
-
-            for (; step<rook_path.size(); step++)                                           // unlock path
-            {
-                auto pos = rook_path[step];
-                board[pos.first][pos.second].unlock_shared();
-            }
-
-            return true;
-        }
-        else
-        {
-            board[new_rook_pos.first][new_rook_pos.second].unlock();                        // unlock new pos
-
-            for (step--; step>=0; step--)                                                    // unlock locked part of the path
-            {
-                auto pos = rook_path[step];
-                board[pos.first][pos.second].unlock_shared();
-            }
-
-            return false;
-        }
+        auto pos = rook_path[step];
+        if (!board[pos.first][pos.second].try_lock_shared_until(deadline))
+            break;
     }
 
-    return false;
+    if (step == rook_path.size() &&                                                         // whole path locked in shared mode until deadline
+        board[new_rook_pos.first][new_rook_pos.second].try_lock_until(deadline))            // AND new pos locked exclusively until deadline
+    {
+        board[rook_pos.first][rook_pos.second].unlock();                                    // unlock old pos
+        result = true;
+    }
+
+    for (step--; step>=0; step--)                                                           // shared-unlock path in coordinate descension order
+    {
+        auto pos = rook_path[step];
+        board[pos.first][pos.second].unlock_shared();
+    }
+
+    return result;
 }
 
 
-void rook_func(int rook_id, Pos rook_pos, Board& board)
+void rook_func(int rook_id, Pos rook_pos)
 {
     using msec = std::chrono::milliseconds;
 
@@ -145,17 +119,17 @@ void rook_func(int rook_id, Pos rook_pos, Board& board)
     {
         do
         {
-            new_rook_pos = random_rook_move(rook_pos);
+            new_rook_pos = gen_random_rook_pos(rook_pos);
         }
-        while(!do_move_rook(rook_pos, new_rook_pos, board));    // on success, thread holds 2 mutexes
-
-        board[rook_pos.first][rook_pos.second].unlock();
+        while(!do_move_rook(rook_pos, new_rook_pos));
 
         {
             std::lock_guard<std::mutex> lk(cout_mx);
-            std::cout << "rook" << rook_id << " move" << std::setw(2) << rook_moves << "\t\t"
+            std::cout << "rook" << rook_id << " move" << std::setw(2) << rook_moves+1 << "\t\t"
                       << ax1[rook_pos.first] << ax2[rook_pos.second] << '-'
-                      << ax1[new_rook_pos.first] << ax2[new_rook_pos.second] << std::endl << std::flush;
+                      << ax1[new_rook_pos.first] << ax2[new_rook_pos.second]
+                      << std::endl << (rook_moves == 49 ? ("--- rook" + std::to_string(rook_id) + " FINISH! ---\n") : "")
+                      << std::flush;
         }
 
         rook_pos = new_rook_pos;
@@ -165,7 +139,7 @@ void rook_func(int rook_id, Pos rook_pos, Board& board)
             std::this_thread::sleep_for(msec(random_num(200, 300)));
     }
 
-    board[rook_pos.first][rook_pos.second].unlock();
+    board[rook_pos.first][rook_pos.second].unlock();                                    // unlock final pos
 }
 
 
@@ -179,21 +153,20 @@ int main(int argc, char* argv[])
         int tmp = std::stoi(argv[1]);
         n_rooks = (4 <= tmp && tmp <= 6) ? tmp : n_rooks;
     }
-    catch(...) {}
-
-    Board board;
+    catch(...)
+    {}
 
     std::vector<std::thread> rooks;
     for (int i=0; i<n_rooks; i++)
     {
-        Pos i_pos;
+        Pos i_start_pos;
         do
         {
-            i_pos = std::make_pair(random_num(0,7), random_num(0,7));
+            i_start_pos = std::make_pair(random_num(0,7), random_num(0,7));
         }
-        while (!board[i_pos.first][i_pos.second].try_lock());
+        while (!board[i_start_pos.first][i_start_pos.second].try_lock());
 
-        std::thread th(rook_func, i, i_pos, std::ref(board));
+        std::thread th(rook_func, i, i_start_pos);
         rooks.push_back(std::move(th));
     }
 
