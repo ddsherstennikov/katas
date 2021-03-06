@@ -1,0 +1,39 @@
+The original solution is algorithmically ok, I'll h=just post pseudocode version to isolate solution from language specifics.
+
+My solution: O(N logN) ~ time, O(N) ~ space.
+
+We'll do some bookkeeping in structures first and then iterate left to right, one scale step at a time.
+
+Structures:
+1) **houses_L** - vector of houses sorted on their left border ~ O(N logN) sort time, O(N) space
+2) **houses_R** - vector of houses sorted on their right border ~ O(N logN) sort time, O(N) space
+3) **house_ended** - array<bool, N> to store the fact "house has ended" ~ O(1) time, O(N) space 
+4) **current_houses** - a priority_queue (internally it's a heap, a binary tree stored in a vector), that we'll use as a centerpiece of solution and will update at each iteration, totally N houses will go through it, so there'll be N insertions and N extractions ~ O(N logN) time, O(N) space
+
+Algorithm (pseudocode):
+
+    M = houses_R[N-1].r // max right border
+    
+    for i=0 to M
+        for j=houses_L_it to N
+            house = houses_L[j]
+            if house.l == i
+                houses_L_it++
+                current_houses.insert(house)
+            else break
+    
+        while (true)
+            if not current_houses.empty()
+                house = current_houses.pop()
+                if house_ended[house]
+                    continue        
+                print house.h
+            print 0 // empty skyline
+            break
+            
+        for j=houses_R_it to N
+            house = houses_R[j]
+            if house.r == i
+                houses_R_it++
+                house_ended[house] = true
+            else break
